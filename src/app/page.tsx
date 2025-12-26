@@ -1,65 +1,163 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-black text-white">
+      {/* Hero Section */}
+      <section className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <h1 className="text-5xl md:text-7xl font-bold mb-4">Vince Welke, Ph.D.</h1>
+        <p className="text-xl md:text-2xl text-gray-400 mb-2">Engineering Leader</p>
+        <p className="text-lg md:text-xl text-gray-500 mb-8 max-w-2xl">
+          Building data platforms and AI systems that scale
+        </p>
+        <a
+          href="#projects"
+          className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-gray-200 transition-colors"
+        >
+          View Projects
+        </a>
+      </section>
+
+      {/* Projects Section */}
+      <section id="projects" className="py-24 px-6 bg-zinc-950">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">Projects</h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Tournament Bot */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+              <div className="text-sm text-green-500 mb-2">● Live</div>
+              <h3 className="text-xl font-semibold mb-2">Tournament Bot</h3>
+              <p className="text-gray-400 mb-4">
+                Autonomous agentic AI that manages tournament logistics through natural language.
+                Handles registration, scheduling, and bracket management.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Claude API</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Railway</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Python</span>
+              </div>
+            </div>
+
+            {/* Inventory System */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+              <div className="text-sm text-gray-500 mb-2">● Completed</div>
+              <h3 className="text-xl font-semibold mb-2">Inventory Management System</h3>
+              <p className="text-gray-400 mb-4">
+                Modernized retail POS for 15K SKUs. Parsed legacy data, integrated with Shopify for
+                real-time inventory sync across physical and online stores.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">JavaScript</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Google Apps Script</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Shopify</span>
+              </div>
+            </div>
+
+            {/* AI Assistant */}
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+              <div className="text-sm text-yellow-500 mb-2">● Coming Soon</div>
+              <h3 className="text-xl font-semibold mb-2">AI Assistant</h3>
+              <p className="text-gray-400 mb-4">
+                Chat with an AI that knows my experience. Ask about my projects, skills, or
+                background. Built with OpenAI API and rate limiting.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">OpenAI API</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Next.js</span>
+                <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Vercel</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* About Section */}
+      <section id="about" className="py-24 px-6 bg-black">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">About</h2>
+          <div className="text-gray-400 space-y-4 mb-8">
+            <p>
+              I am a data engineer and engineering leader with 10+ years of experience building data
+              platforms, ML pipelines, and leading technical teams. I hold a Ph.D. in Physics from
+              UC San Diego, where I worked on particle physics research at CERN.
+            </p>
+            <p>
+              Currently, I am focused on building AI-powered applications and exploring how large
+              language models can automate complex workflows. I have built production systems
+              processing 500M+ rows and delivering $10M+ in annual revenue.
+            </p>
+          </div>
+
+          <h3 className="text-xl font-semibold mb-4">Tech Stack</h3>
+          <div className="flex flex-wrap gap-2 mb-8">
+            {[
+              "Python",
+              "SQL",
+              "AWS",
+              "Spark",
+              "Airflow",
+              "TypeScript",
+              "Next.js",
+              "OpenAI API",
+              "Claude API",
+              "PostgreSQL",
+              "Redis",
+              "Docker",
+            ].map((tech) => (
+              <span
+                key={tech}
+                className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-sm"
+              >
+                {tech}
+              </span>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <a
+              href="/Vince_Welke_Resume.pdf"
+              className="inline-block px-6 py-3 border border-white rounded-full hover:bg-white hover:text-black transition-colors"
+            >
+              Download Resume
+            </a>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="py-24 px-6 bg-zinc-950">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-8">Contact</h2>
+          <p className="text-gray-400 mb-8">Interested in working together? Get in touch.</p>
+          <div className="flex justify-center gap-6">
+            <a
+              href="mailto:vince.welke@gmail.com"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              Email
+            </a>
+            <a
+              href="https://linkedin.com/in/vince-welke"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              LinkedIn
+            </a>
+            <a
+              href="https://github.com/CVW-HMB"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 px-6 border-t border-zinc-900 text-center text-gray-600 text-sm">
+        © {new Date().getFullYear()} Vince Welke
+      </footer>
+    </main>
   );
 }
