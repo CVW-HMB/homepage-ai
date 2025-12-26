@@ -1,4 +1,5 @@
 import GitHubContributions from "@/components/GitHubContributions";
+import Chat from "@/components/Chat";
 
 export default function Home() {
   return (
@@ -54,8 +55,11 @@ export default function Home() {
             </div>
 
             {/* AI Assistant */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
-              <div className="text-sm text-yellow-500 mb-2">● Coming Soon</div>
+            <a
+              href="#assistant"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors block"
+            >
+              <div className="text-sm text-green-500 mb-2">● Live</div>
               <h3 className="text-xl font-semibold mb-2">AI Assistant</h3>
               <p className="text-gray-400 mb-4">
                 Chat with an AI that knows my experience. Ask about my projects, skills, or
@@ -66,8 +70,20 @@ export default function Home() {
                 <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Next.js</span>
                 <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Vercel</span>
               </div>
-            </div>
+              <span className="text-white text-sm font-medium">Try it below →</span>
+            </a>
           </div>
+        </div>
+      </section>
+
+      {/* AI Assistant Section */}
+      <section id="assistant" className="py-24 px-6 bg-black">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-center">AI Assistant</h2>
+          <p className="text-gray-400 text-center mb-8">
+            Ask about my experience, skills, or projects!
+          </p>
+          <Chat />
         </div>
       </section>
 
