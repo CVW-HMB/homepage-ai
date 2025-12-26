@@ -1,3 +1,5 @@
+import GitHubContributions from "@/components/GitHubContributions";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-black text-white">
@@ -118,6 +120,11 @@ export default function Home() {
             >
               Download Resume
             </a>
+          </div>
+
+          <div className="mt-12">
+            <h3 className="text-xl font-semibold mb-6 text-center">GitHub Activity</h3>
+            <GitHubContributions />
           </div>
         </div>
       </section>
