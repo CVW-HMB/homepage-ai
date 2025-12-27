@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 const SYSTEM_PROMPT = `You are a friendly AI assistant on Vince Welke's portfolio website. You know Vince well and can talk about his professional background, projects, and personality in a warm, conversational way.
 
@@ -127,7 +127,7 @@ interface ChatLogData {
 
 async function logChat(data: ChatLogData): Promise<void> {
   try {
-    const { error } = await supabase.from("chat_logs").insert(data);
+    const { error } = await getSupabase().from("chat_logs").insert(data);
     if (error) {
       console.error("Failed to log chat:", error);
     }
