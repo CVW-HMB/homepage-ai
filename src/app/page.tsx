@@ -13,7 +13,7 @@ export default function Home() {
         </p>
         <a
           href="#projects"
-          className="px-8 py-3 bg-white text-black font-semibold rounded-full hover:bg-gray-200 transition-colors"
+          className="px-8 py-3 bg-teal-600 text-white font-semibold rounded-full hover:bg-teal-500 transition-colors"
         >
           View Projects
         </a>
@@ -66,7 +66,7 @@ export default function Home() {
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Tournament Bot */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-teal-600 transition-colors">
               <div className="text-sm text-green-500 mb-2">● Live</div>
               <h3 className="text-xl font-semibold mb-2">Tournament Bot</h3>
               <p className="text-gray-400 mb-4">
@@ -81,7 +81,7 @@ export default function Home() {
             </div>
 
             {/* Inventory System */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-teal-600 transition-colors">
               <div className="text-sm text-gray-500 mb-2">● Completed</div>
               <h3 className="text-xl font-semibold mb-2">Retail Inventory Overhaul</h3>
               <p className="text-gray-400 mb-4">
@@ -98,7 +98,7 @@ export default function Home() {
             {/* AI Assistant */}
             <a
               href="#assistant"
-              className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-zinc-700 transition-colors block"
+              className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 hover:border-teal-600 transition-colors block"
             >
               <div className="text-sm text-green-500 mb-2">● Live</div>
               <h3 className="text-xl font-semibold mb-2">This AI Assistant</h3>
@@ -111,7 +111,7 @@ export default function Home() {
                 <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Next.js</span>
                 <span className="text-xs px-2 py-1 bg-zinc-800 rounded">Vercel</span>
               </div>
-              <span className="text-white text-sm font-medium">Try it below →</span>
+              <span className="text-teal-500 text-sm font-medium">Try it below →</span>
             </a>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function Home() {
           <div className="text-center">
             <a
               href="/Vince_Welke_Resume.pdf"
-              className="inline-block px-6 py-3 border border-white rounded-full hover:bg-white hover:text-black transition-colors"
+              className="inline-block px-6 py-3 border border-teal-600 text-teal-500 rounded-full hover:bg-teal-600 hover:text-white transition-colors"
             >
               Download Resume
             </a>
@@ -199,7 +199,7 @@ export default function Home() {
           <div className="flex justify-center gap-6">
             <a
               href="mailto:vince.welke@gmail.com"
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-teal-500 transition-colors"
             >
               Email
             </a>
@@ -207,7 +207,7 @@ export default function Home() {
               href="https://linkedin.com/in/vince-welke"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-teal-500 transition-colors"
             >
               LinkedIn
             </a>
@@ -215,7 +215,7 @@ export default function Home() {
               href="https://github.com/CVW-HMB"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-teal-500 transition-colors"
             >
               GitHub
             </a>
