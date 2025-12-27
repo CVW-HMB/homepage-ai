@@ -7,6 +7,10 @@ interface Message {
   content: string;
 }
 
+function generateSessionId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -19,6 +23,8 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef<string>(generateSessionId());
+  const messageIndexRef = useRef<number>(0);
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -37,7 +43,9 @@ export default function Chat() {
     const userMessage = input.trim();
     setInput("");
     setError(null);
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+
+    const newMessages: Message[] = [...messages, { role: "user", content: userMessage }];
+    setMessages(newMessages);
     setLoading(true);
 
     try {
@@ -45,8 +53,11 @@ export default function Chat() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: userMessage,
-          history: messages,
+          messages: newMessages,
+          sessionId: sessionIdRef.current,
+          messageIndex: messageIndexRef.current,
+          referrer: document.referrer || null,
+          pageUrl: window.location.href,
         }),
       });
 
@@ -56,7 +67,8 @@ export default function Chat() {
         throw new Error(data.error || "Failed to send message");
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      messageIndexRef.current += 1;
+      setMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

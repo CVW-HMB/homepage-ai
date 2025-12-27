@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { supabase } from "@/lib/supabase";
 
 const SYSTEM_PROMPT = `You are a friendly AI assistant on Vince Welke's portfolio website. You know Vince well and can talk about his professional background, projects, and personality in a warm, conversational way.
 
@@ -100,10 +101,56 @@ function isBotMessage(message: string): boolean {
   return BOT_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-export async function POST(request: NextRequest) {
+interface ChatLogData {
+  session_id: string;
+  message_index: number;
+  user_message: string;
+  assistant_response: string | null;
+  ip_address: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  user_agent: string | null;
+  language: string | null;
+  referrer: string | null;
+  page_url: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  model: string | null;
+  tokens_used: number | null;
+  duration_ms: number | null;
+  error: string | null;
+}
+
+async function logChat(data: ChatLogData): Promise<void> {
   try {
-    const ip = request.headers.get("x-forwarded-for") || "unknown";
-    const rateLimit = checkRateLimit(ip);
+    const { error } = await supabase.from("chat_logs").insert(data);
+    if (error) {
+      console.error("Failed to log chat:", error);
+    }
+  } catch (err) {
+    console.error("Chat logging error:", err);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
+  // Extract headers for logging
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || null;
+  const country = request.headers.get("x-vercel-ip-country") || null;
+  const region = request.headers.get("x-vercel-ip-country-region") || null;
+  const city = request.headers.get("x-vercel-ip-city") || null;
+  const latitude = request.headers.get("x-vercel-ip-latitude");
+  const longitude = request.headers.get("x-vercel-ip-longitude");
+  const userAgent = request.headers.get("user-agent") || null;
+  const language = request.headers.get("accept-language")?.split(",")[0] || null;
+
+  try {
+    const rateLimit = checkRateLimit(ip || "unknown");
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -116,10 +163,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages } = body;
+    const {
+      messages,
+      sessionId,
+      messageIndex,
+      referrer,
+      pageUrl,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+    } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messages are required" }, { status: 400 });
+    }
+
+    if (!sessionId) {
+      return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
     }
 
     const lastMessage = messages[messages.length - 1];
@@ -138,11 +198,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (isBotMessage(lastMessage.content)) {
-      return NextResponse.json({
-        message:
-          "I'm here to chat about Vince! What would you like to know about his background, projects, or experience?",
+    const userMessage = lastMessage.content;
+
+    if (isBotMessage(userMessage)) {
+      const botResponse =
+        "I'm here to chat about Vince! What would you like to know about his background, projects, or experience?";
+
+      // Log bot-filtered message
+      logChat({
+        session_id: sessionId,
+        message_index: messageIndex ?? 0,
+        user_message: userMessage,
+        assistant_response: botResponse,
+        ip_address: ip,
+        country,
+        region,
+        city,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        user_agent: userAgent,
+        language,
+        referrer: referrer || null,
+        page_url: pageUrl || null,
+        utm_source: utmSource || null,
+        utm_medium: utmMedium || null,
+        utm_campaign: utmCampaign || null,
+        model: null,
+        tokens_used: null,
+        duration_ms: Date.now() - startTime,
+        error: "bot_filtered",
       });
+
+      return NextResponse.json({ message: botResponse });
     }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -162,11 +249,63 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const error = await response.json();
       console.error("OpenAI API error:", error);
+
+      // Log API error
+      logChat({
+        session_id: sessionId,
+        message_index: messageIndex ?? 0,
+        user_message: userMessage,
+        assistant_response: null,
+        ip_address: ip,
+        country,
+        region,
+        city,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        user_agent: userAgent,
+        language,
+        referrer: referrer || null,
+        page_url: pageUrl || null,
+        utm_source: utmSource || null,
+        utm_medium: utmMedium || null,
+        utm_campaign: utmCampaign || null,
+        model: "gpt-4o-mini",
+        tokens_used: null,
+        duration_ms: Date.now() - startTime,
+        error: JSON.stringify(error),
+      });
+
       return NextResponse.json({ error: "Failed to get response from AI" }, { status: 500 });
     }
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content;
+    const tokensUsed = data.usage?.total_tokens || null;
+
+    // Log successful message
+    logChat({
+      session_id: sessionId,
+      message_index: messageIndex ?? 0,
+      user_message: userMessage,
+      assistant_response: assistantMessage,
+      ip_address: ip,
+      country,
+      region,
+      city,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      user_agent: userAgent,
+      language,
+      referrer: referrer || null,
+      page_url: pageUrl || null,
+      utm_source: utmSource || null,
+      utm_medium: utmMedium || null,
+      utm_campaign: utmCampaign || null,
+      model: "gpt-4o-mini",
+      tokens_used: tokensUsed,
+      duration_ms: Date.now() - startTime,
+      error: null,
+    });
 
     return NextResponse.json(
       { message: assistantMessage },
