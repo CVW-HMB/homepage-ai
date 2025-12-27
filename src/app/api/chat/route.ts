@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
         "I'm here to chat about Vince! What would you like to know about his background, projects, or experience?";
 
       // Log bot-filtered message
-      logChat({
+      await logChat({
         session_id: sessionId,
         message_index: messageIndex ?? 0,
         user_message: userMessage,
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
       console.error("OpenAI API error:", error);
 
       // Log API error
-      logChat({
+      await logChat({
         session_id: sessionId,
         message_index: messageIndex ?? 0,
         user_message: userMessage,
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
     const tokensUsed = data.usage?.total_tokens || null;
 
     // Log successful message
-    logChat({
+    await logChat({
       session_id: sessionId,
       message_index: messageIndex ?? 0,
       user_message: userMessage,
