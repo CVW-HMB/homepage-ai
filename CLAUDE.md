@@ -50,9 +50,9 @@ Auth is a signed cookie, not a session store: `lib/adminAuth.ts` HMACs an expiry
 
 ## Chat logging schema
 
-`sql/chat_logs.sql` is the table definition, applied by hand in the Supabase SQL Editor — there are no migrations. The `ChatLogData` interface in the chat route mirrors it column-for-column; adding a field means editing the SQL, running it in Supabase, and updating both the interface and all three `logChat` call sites. Geo columns (country/region/city) come from `x-vercel-ip-*` headers and are null in local dev. Two deliberate privacy constraints: `ip_address` stores only a **truncated** address (`lib/clientIp.ts` — the full one is used solely as the in-memory rate-limit key), and precise lat/long is not collected at all.
+`sql/001_chat_logs.sql` is the table definition, applied by hand in the Supabase SQL Editor — there are no migrations. The `ChatLogData` interface in the chat route mirrors it column-for-column; adding a field means editing the SQL, running it in Supabase, and updating both the interface and all three `logChat` call sites. Geo columns (country/region/city) come from `x-vercel-ip-*` headers and are null in local dev. Two deliberate privacy constraints: `ip_address` stores only a **truncated** address (`lib/clientIp.ts` — the full one is used solely as the in-memory rate-limit key), and precise lat/long is not collected at all.
 
-`sql/chat_sessions.sql` defines the `chat_sessions` view the admin console reads. Adding a column to `chat_logs` that the console should surface means updating that view too.
+`sql/002_chat_sessions.sql` defines the `chat_sessions` view the admin console reads. Adding a column to `chat_logs` that the console should surface means updating that view too.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

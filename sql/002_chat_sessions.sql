@@ -1,5 +1,5 @@
 -- Per-conversation rollup used by the /admin console.
--- Run this in the Supabase SQL Editor after sql/chat_logs.sql.
+-- Run this in the Supabase SQL Editor after sql/001_chat_logs.sql.
 --
 -- One row per session_id, so the console can paginate conversations directly
 -- (ORDER BY last_at DESC, 10 per page) instead of pulling every message row

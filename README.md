@@ -45,8 +45,8 @@ skipped, and `/admin` shows a diagnostic instead of data.
 
 Run these in the Supabase SQL Editor, in order. There is no migration runner.
 
-1. `sql/chat_logs.sql` — the message table
-2. `sql/chat_sessions.sql` — the per-conversation rollup view that `/admin` reads
+1. `sql/001_chat_logs.sql` — the message table
+2. `sql/002_chat_sessions.sql` — the per-conversation rollup view that `/admin` reads
 
 ## Admin console
 

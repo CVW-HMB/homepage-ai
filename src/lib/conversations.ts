@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 
 // chat_logs stores one row per message. The console works in conversations, so
-// the per-session rollup lives in the `chat_sessions` view (sql/chat_sessions.sql)
+// the per-session rollup lives in the `chat_sessions` view (sql/002_chat_sessions.sql)
 // — aggregating in Postgres is what makes "10 per page, newest first" a real
 // paginated query rather than a fetch-everything-and-group-in-JS.
 
