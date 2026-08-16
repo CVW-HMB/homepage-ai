@@ -37,9 +37,15 @@ CREATE TABLE chat_logs (
     -- Performance/cost
     model TEXT,
     tokens_used INTEGER,
+    cached_tokens INTEGER,
     duration_ms INTEGER,
     error TEXT
 );
+
+-- Migration for an existing table (safe to re-run):
+-- ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS cached_tokens INTEGER;
+-- ALTER TABLE chat_logs DROP COLUMN IF EXISTS latitude;
+-- ALTER TABLE chat_logs DROP COLUMN IF EXISTS longitude;
 
 -- Indexes
 CREATE INDEX idx_chat_logs_created_at ON chat_logs (created_at);
@@ -50,3 +56,5 @@ CREATE INDEX idx_chat_logs_referrer ON chat_logs (referrer);
 COMMENT ON TABLE chat_logs IS 'Stores chatbot conversations for user research and traffic analysis';
 COMMENT ON COLUMN chat_logs.session_id IS 'Groups messages into conversations';
 COMMENT ON COLUMN chat_logs.message_index IS 'Order of message within session (0, 1, 2...)';
+COMMENT ON COLUMN chat_logs.ip_address IS 'Truncated to /24 (IPv4) or /48 (IPv6) — the full address is never stored';
+COMMENT ON COLUMN chat_logs.cached_tokens IS 'Prompt tokens served from OpenAI prompt cache (billed at a discount)';

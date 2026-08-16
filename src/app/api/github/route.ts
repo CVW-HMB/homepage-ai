@@ -54,8 +54,11 @@ export async function GET() {
 
     const data = await response.json();
 
+    // Log the upstream message but don't return it — GitHub's GraphQL errors can
+    // name the token's scopes and the account.
     if (data.errors) {
-      return NextResponse.json({ error: data.errors[0].message }, { status: 500 });
+      console.error("GitHub GraphQL error:", data.errors);
+      return NextResponse.json({ error: "Failed to fetch contributions" }, { status: 500 });
     }
 
     const calendar = data.data.user.contributionsCollection.contributionCalendar;
@@ -65,6 +68,7 @@ export async function GET() {
       weeks: calendar.weeks,
     } as ContributionData);
   } catch (error) {
+    console.error("GitHub contributions fetch failed:", error);
     return NextResponse.json({ error: "Failed to fetch contributions" }, { status: 500 });
   }
 }

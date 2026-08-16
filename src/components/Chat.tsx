@@ -126,7 +126,9 @@ export default function Chat() {
             Send
           </button>
         </div>
-        <p className="text-gray-600 text-xs mt-2 text-center">20 messages per hour limit</p>
+        <p className="text-gray-600 text-xs mt-2 text-center">
+          20 messages per hour limit &middot; conversations are logged to improve this assistant
+        </p>
       </form>
     </div>
   );
