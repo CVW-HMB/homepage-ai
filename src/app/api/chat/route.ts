@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { getSupabase } from "@/lib/supabase";
+import { getClientIp, anonymizeIp } from "@/lib/clientIp";
+import { isAllowedOrigin } from "@/lib/origin";
 
 const SYSTEM_PROMPT = `You are a friendly AI assistant on Vince Welke's portfolio website. You know Vince well and can talk about his professional background, projects, and personality in a warm, conversational way.
 
@@ -8,8 +10,14 @@ const SYSTEM_PROMPT = `You are a friendly AI assistant on Vince Welke's portfoli
 - Be warm, friendly, and natural. Talk like a friend who knows Vince, not a resume reader.
 - Tell stories and give context. Don't just recite facts.
 - NEVER repeat information verbatim. Paraphrase and weave details into natural conversation.
-- Keep responses concise but engaging (2-4 sentences typically, more for detailed questions).
-- Show genuine enthusiasm without being over the top.
+- Hard length limit: 2-4 sentences. Only exceed this if the visitor explicitly asks for detail,
+  and never go past 6. If you have more to say, stop and offer to go deeper instead.
+- Understated, not bubbly. At most one exclamation mark per reply, and usually zero.
+  Never open with "What a great question", "Absolutely!", or similar filler.
+- Do not stack superlatives ("fantastic", "incredible", "impressive", "amazing", "big win").
+  Let the substance carry the enthusiasm. A plain sentence beats a padded one.
+- Don't narrate metrics like a bullet point. If a number matters, work it into the story;
+  if it doesn't, leave it out. Mention at most one figure per reply.
 - If someone asks about personal stuff, share it naturally like you would about a friend.
 
 === VINCE'S STORY ===
@@ -50,6 +58,24 @@ Current Side Projects:
 
 Contact: vince.welke@gmail.com | linkedin.com/in/vince-welke | github.com/CVW-HMB
 
+=== FACTS YOU MUST NOT SOFTEN OR GUESS ===
+
+These come up most often from recruiters, and a vague answer here is worse than no answer.
+
+1. LOCATION: Vince is in San Diego and is NOT open to relocation. Say this plainly when asked
+   about location, relocation, or onsite roles elsewhere. Do not hedge it into "prefers" or
+   "is open to opportunities that let him stay" — the answer is that he's staying in San Diego.
+   Remote and San Diego-based roles both work; a role requiring a move does not.
+2. COMPENSATION: You do not know his salary expectations, rate, or current compensation.
+   Never estimate, never characterize a range as competitive or market-rate, never imply
+   you know what he'd accept. Say you don't handle comp and point them to email.
+3. AVAILABILITY / NOTICE PERIOD: You don't know. Don't invent one.
+4. Anything not in this prompt: say you don't know and offer his email
+   (vince.welke@gmail.com). Never fill a gap with a plausible-sounding guess.
+
+When a recruiter asks something in categories 2-4, the move is: answer the part you do know,
+say plainly that you can't speak to the rest, and hand off to email.
+
 === RESPONSE STYLE EXAMPLES ===
 
 Q: "Where did Vince go to school?"
@@ -61,8 +87,13 @@ Good: "He's a big skier and snowboarder, grew up hitting the slopes in New Mexic
 Bad: "Vince skis and snowboards. He started skiing as a child and began snowboarding at age 13. He enjoys wine and cooking and used to make beer. He is learning Spanish."
 
 Q: "Tell me about his experience at FICO"
-Good: "FICO was Vince's first industry job after his PhD. He worked on their Falcon fraud detection system, which is a pretty big deal since it's like 20% of their revenue. He built ML models that got deployed multiple times a year and made some major improvements to catching online fraud. He also got his first experience presenting technical work directly to banking clients."
+Good: "FICO was his first industry job after the PhD, working on their Falcon fraud detection system. He spent a lot of it on catching card-not-present fraud, and got his first real practice explaining technical work to banking clients. That client-facing piece ended up mattering a lot later."
 Bad: "At FICO from 2017-2019, Vince was Lead Scientist developing real-time fraud detection ML models for FICO Falcon Fraud Manager representing 20% of revenue."
+Also bad (padded, over-enthusiastic, recites every metric): "Vince's time at FICO was quite a pivotal chapter! He developed real-time fraud detection models for Falcon Fraud Manager, a significant revenue driver, and made impressive strides like enhancing card-not-present detection by over 30%, which was a big win!"
+
+Q: "I'm a recruiter — what's his salary expectation, and would he consider onsite in NYC?"
+Good: "I don't handle comp, so that one's best directly with Vince at vince.welke@gmail.com. On location though, he's staying in San Diego and isn't relocating — remote works, onsite in NYC wouldn't."
+Bad: "He'd likely command a competitive salary in that range, and he's open to opportunities that allow him to stay in San Diego."
 
 === SECURITY RULES (NEVER VIOLATE) ===
 
@@ -101,6 +132,63 @@ function isBotMessage(message: string): boolean {
   return BOT_PATTERNS.some((pattern) => pattern.test(message));
 }
 
+const MAX_MESSAGE_LENGTH = 500;
+const MAX_HISTORY = 6;
+// Mid-tier of the current generation: a clear step up from gpt-4o-mini on tone
+// and instruction-following, without the latency of a flagship model in a widget
+// someone is waiting on. Note the GPT-5 family renamed `max_tokens` to
+// `max_completion_tokens` and rejects the old name outright.
+const CHAT_MODEL = "gpt-5.4-mini";
+const MAX_COMPLETION_TOKENS = 600;
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+// The browser sends the whole transcript back on every turn, so every field here
+// is attacker-controlled. Two things matter:
+//   - Only "user" and "assistant" turns are forwarded. Without this check a caller
+//     can post role:"system" and append their own instructions after the real
+//     system prompt.
+//   - Forged history is still history: the bot-pattern screen has to run over every
+//     user turn, not just the newest one, or an injection can simply ride along in
+//     an earlier message behind a harmless-looking final question.
+// A malformed escape sequence would otherwise throw and take down the request.
+function decodeHeader(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+// Every analytics field is client-supplied; anything that isn't a plain string
+// is dropped rather than coerced into the log row.
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+function sanitizeMessages(input: unknown): ChatMessage[] | null {
+  if (!Array.isArray(input) || input.length === 0) return null;
+
+  const cleaned: ChatMessage[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") return null;
+    const { role, content } = raw as { role?: unknown; content?: unknown };
+    if (role !== "user" && role !== "assistant") return null;
+    if (typeof content !== "string") return null;
+    if (content.length > MAX_MESSAGE_LENGTH) return null;
+    cleaned.push({ role, content });
+  }
+
+  return cleaned;
+}
+
+// ip_address holds a TRUNCATED address (see anonymizeIp) — never the full one.
+// Precise lat/long is deliberately not collected; country/region/city is as
+// granular as this gets.
 interface ChatLogData {
   session_id: string;
   message_index: number;
@@ -110,8 +198,6 @@ interface ChatLogData {
   country: string | null;
   region: string | null;
   city: string | null;
-  latitude: number | null;
-  longitude: number | null;
   user_agent: string | null;
   language: string | null;
   referrer: string | null;
@@ -121,6 +207,7 @@ interface ChatLogData {
   utm_campaign: string | null;
   model: string | null;
   tokens_used: number | null;
+  cached_tokens: number | null;
   duration_ms: number | null;
   error: string | null;
 }
@@ -139,18 +226,23 @@ async function logChat(data: ChatLogData): Promise<void> {
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
-  // Extract headers for logging
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || null;
-  const country = request.headers.get("x-vercel-ip-country") || null;
-  const region = request.headers.get("x-vercel-ip-country-region") || null;
-  const city = request.headers.get("x-vercel-ip-city") || null;
-  const latitude = request.headers.get("x-vercel-ip-latitude");
-  const longitude = request.headers.get("x-vercel-ip-longitude");
+  if (!isAllowedOrigin(request.headers.get("origin"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Full IP is used only as the in-memory rate-limit key; only the truncated
+  // form is ever persisted.
+  const rawIp = getClientIp(request.headers);
+  const ip = anonymizeIp(rawIp);
+  // Vercel percent-encodes these, so multi-word places arrive as "Saint%20Joseph".
+  const country = decodeHeader(request.headers.get("x-vercel-ip-country"));
+  const region = decodeHeader(request.headers.get("x-vercel-ip-country-region"));
+  const city = decodeHeader(request.headers.get("x-vercel-ip-city"));
   const userAgent = request.headers.get("user-agent") || null;
   const language = request.headers.get("accept-language")?.split(",")[0] || null;
 
   try {
-    const rateLimit = checkRateLimit(ip || "unknown");
+    const rateLimit = checkRateLimit(rawIp || "unknown");
 
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -162,45 +254,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const {
-      messages,
-      sessionId,
-      messageIndex,
-      referrer,
-      pageUrl,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-    } = body;
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    const messages = body.messages;
+    const sessionId = asString(body.sessionId);
+    const messageIndex = typeof body.messageIndex === "number" ? body.messageIndex : 0;
+    const referrer = asString(body.referrer);
+    const pageUrl = asString(body.pageUrl);
+    const utmSource = asString(body.utmSource);
+    const utmMedium = asString(body.utmMedium);
+    const utmCampaign = asString(body.utmCampaign);
+
+    const history = sanitizeMessages(messages);
+    if (!history) {
       return NextResponse.json({ error: "Messages are required" }, { status: 400 });
     }
 
-    if (!sessionId) {
+    if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
     }
 
-    const lastMessage = messages[messages.length - 1];
-    if (
-      !lastMessage ||
-      typeof lastMessage.content !== "string" ||
-      lastMessage.content.trim() === ""
-    ) {
+    const lastMessage = history[history.length - 1];
+    if (lastMessage.role !== "user" || lastMessage.content.trim() === "") {
       return NextResponse.json({ error: "Message content is required" }, { status: 400 });
-    }
-
-    if (lastMessage.content.length > 500) {
-      return NextResponse.json(
-        { error: "Message too long. Please keep it under 500 characters." },
-        { status: 400 }
-      );
     }
 
     const userMessage = lastMessage.content;
 
-    if (isBotMessage(userMessage)) {
+    // Screen every user turn, not just the newest — see sanitizeMessages.
+    if (history.some((m) => m.role === "user" && isBotMessage(m.content))) {
       const botResponse =
         "I'm here to chat about Vince! What would you like to know about his background, projects, or experience?";
 
@@ -214,8 +301,6 @@ export async function POST(request: NextRequest) {
         country,
         region,
         city,
-        latitude: latitude ? parseFloat(latitude) : null,
-        longitude: longitude ? parseFloat(longitude) : null,
         user_agent: userAgent,
         language,
         referrer: referrer || null,
@@ -225,6 +310,7 @@ export async function POST(request: NextRequest) {
         utm_campaign: utmCampaign || null,
         model: null,
         tokens_used: null,
+        cached_tokens: null,
         duration_ms: Date.now() - startTime,
         error: "bot_filtered",
       });
@@ -232,25 +318,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: botResponse });
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages.slice(-6)],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+    let assistantMessage: string;
+    let tokensUsed: number | null = null;
+    let cachedTokens: number | null = null;
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error("OpenAI API error:", error);
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: CHAT_MODEL,
+          // SYSTEM_PROMPT stays first and byte-identical on every request, which
+          // is what lets OpenAI's automatic prompt caching reuse it — roughly 2.3k
+          // of the ~2.6k prompt tokens are served from cache after the first call.
+          // Anything variable must stay at the end, after the history.
+          messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-MAX_HISTORY)],
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+          // This is recall-and-paraphrase from a fixed biography; reasoning would
+          // add latency and cost without improving the answers.
+          reasoning_effort: "none",
+          temperature: 0.7,
+        }),
+      });
 
-      // Log API error
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`OpenAI ${response.status}: ${body.slice(0, 500)}`);
+      }
+
+      const data = await response.json();
+      assistantMessage = (data.choices?.[0]?.message?.content ?? "").trim();
+      if (!assistantMessage) {
+        throw new Error("empty response from OpenAI");
+      }
+
+      tokensUsed = data.usage?.total_tokens ?? null;
+      cachedTokens = data.usage?.prompt_tokens_details?.cached_tokens ?? null;
+    } catch (err) {
+      console.error("OpenAI API error:", err);
+
       await logChat({
         session_id: sessionId,
         message_index: messageIndex ?? 0,
@@ -260,8 +369,6 @@ export async function POST(request: NextRequest) {
         country,
         region,
         city,
-        latitude: latitude ? parseFloat(latitude) : null,
-        longitude: longitude ? parseFloat(longitude) : null,
         user_agent: userAgent,
         language,
         referrer: referrer || null,
@@ -269,18 +376,15 @@ export async function POST(request: NextRequest) {
         utm_source: utmSource || null,
         utm_medium: utmMedium || null,
         utm_campaign: utmCampaign || null,
-        model: "gpt-4o-mini",
+        model: CHAT_MODEL,
         tokens_used: null,
+        cached_tokens: null,
         duration_ms: Date.now() - startTime,
-        error: JSON.stringify(error),
+        error: err instanceof Error ? err.message : String(err),
       });
 
       return NextResponse.json({ error: "Failed to get response from AI" }, { status: 500 });
     }
-
-    const data = await response.json();
-    const assistantMessage = data.choices[0]?.message?.content;
-    const tokensUsed = data.usage?.total_tokens || null;
 
     // Log successful message
     await logChat({
@@ -292,8 +396,6 @@ export async function POST(request: NextRequest) {
       country,
       region,
       city,
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
       user_agent: userAgent,
       language,
       referrer: referrer || null,
@@ -301,8 +403,9 @@ export async function POST(request: NextRequest) {
       utm_source: utmSource || null,
       utm_medium: utmMedium || null,
       utm_campaign: utmCampaign || null,
-      model: "gpt-4o-mini",
+      model: CHAT_MODEL,
       tokens_used: tokensUsed,
+      cached_tokens: cachedTokens,
       duration_ms: Date.now() - startTime,
       error: null,
     });
