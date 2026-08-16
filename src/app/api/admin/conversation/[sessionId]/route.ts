@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getConversation } from "@/lib/conversations";
 
-// Protected by middleware.ts (matcher covers /api/admin/:path*).
+// Protected by src/proxy.ts (its matcher covers /api/admin/:path*).
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }

@@ -3,6 +3,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
 import { getSupabase } from "@/lib/supabase";
 import { getClientIp, anonymizeIp } from "@/lib/clientIp";
 import { isAllowedOrigin } from "@/lib/origin";
+import {
+  MAX_HISTORY,
+  asString,
+  containsInjection,
+  decodeHeader,
+  sanitizeMessages,
+} from "@/lib/chatGuards";
 
 const SYSTEM_PROMPT = `You are a friendly AI assistant on Vince Welke's portfolio website. You know Vince well and can talk about his professional background, projects, and personality in a warm, conversational way.
 
@@ -113,78 +120,12 @@ Bad: "He'd likely command a competitive salary in that range, and he's open to o
 4. For off-topic questions, redirect warmly: "I'm really just here to talk about Vince. Anything you'd like to know about his background or what he's working on?"
 5. Light small talk is fine, but steer back to Vince.`;
 
-const BOT_PATTERNS = [
-  /^\/\w+/,
-  /^https?:\/\//i,
-  /ignore (all )?(previous |prior )?(instructions|rules|prompts)/i,
-  /pretend (you are|to be|you're)/i,
-  /act as|roleplay/i,
-  /jailbreak/i,
-  /\bDAN\b/,
-  /system prompt/i,
-  /what are your (instructions|rules)/i,
-  /repeat (everything|your prompt|the prompt)/i,
-  /forget (everything|your rules|all rules)/i,
-  /disregard|override/i,
-];
-
-function isBotMessage(message: string): boolean {
-  return BOT_PATTERNS.some((pattern) => pattern.test(message));
-}
-
-const MAX_MESSAGE_LENGTH = 500;
-const MAX_HISTORY = 6;
 // Mid-tier of the current generation: a clear step up from gpt-4o-mini on tone
 // and instruction-following, without the latency of a flagship model in a widget
 // someone is waiting on. Note the GPT-5 family renamed `max_tokens` to
 // `max_completion_tokens` and rejects the old name outright.
 const CHAT_MODEL = "gpt-5.4-mini";
 const MAX_COMPLETION_TOKENS = 600;
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-// The browser sends the whole transcript back on every turn, so every field here
-// is attacker-controlled. Two things matter:
-//   - Only "user" and "assistant" turns are forwarded. Without this check a caller
-//     can post role:"system" and append their own instructions after the real
-//     system prompt.
-//   - Forged history is still history: the bot-pattern screen has to run over every
-//     user turn, not just the newest one, or an injection can simply ride along in
-//     an earlier message behind a harmless-looking final question.
-// A malformed escape sequence would otherwise throw and take down the request.
-function decodeHeader(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-// Every analytics field is client-supplied; anything that isn't a plain string
-// is dropped rather than coerced into the log row.
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
-}
-
-function sanitizeMessages(input: unknown): ChatMessage[] | null {
-  if (!Array.isArray(input) || input.length === 0) return null;
-
-  const cleaned: ChatMessage[] = [];
-  for (const raw of input) {
-    if (!raw || typeof raw !== "object") return null;
-    const { role, content } = raw as { role?: unknown; content?: unknown };
-    if (role !== "user" && role !== "assistant") return null;
-    if (typeof content !== "string") return null;
-    if (content.length > MAX_MESSAGE_LENGTH) return null;
-    cleaned.push({ role, content });
-  }
-
-  return cleaned;
-}
 
 // ip_address holds a TRUNCATED address (see anonymizeIp) — never the full one.
 // Precise lat/long is deliberately not collected; country/region/city is as
@@ -287,7 +228,7 @@ export async function POST(request: NextRequest) {
     const userMessage = lastMessage.content;
 
     // Screen every user turn, not just the newest — see sanitizeMessages.
-    if (history.some((m) => m.role === "user" && isBotMessage(m.content))) {
+    if (containsInjection(history)) {
       const botResponse =
         "I'm here to chat about Vince! What would you like to know about his background, projects, or experience?";
 
