@@ -44,7 +44,13 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export default function AdminConsole({ initial }: { initial: ConversationPage }) {
+export default function AdminConsole({
+  initial,
+  health,
+}: {
+  initial: ConversationPage;
+  health: { lastAt: string | null; staleDays: number };
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<ConversationDetail | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -89,6 +95,20 @@ export default function AdminConsole({ initial }: { initial: ConversationPage })
           Sign out
         </button>
       </header>
+
+      {/* A silent logging failure once went unnoticed for three months. Say so. */}
+      {health.staleDays >= 2 && (
+        <div className="border-b border-amber-900 bg-amber-950/40 px-6 py-3 text-sm text-amber-200">
+          <strong className="font-semibold">Logging may be broken.</strong>{" "}
+          {health.lastAt
+            ? `No conversation has been recorded for ${health.staleDays} days (last: ${new Date(
+                health.lastAt
+              ).toLocaleDateString()}).`
+            : "No conversations have ever been recorded."}{" "}
+          Check that SUPABASE_URL and SUPABASE_SERVICE_KEY are set in the deployment and that
+          chat_logs has every column the app writes.
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-[380px_1fr] gap-0 lg:h-[calc(100vh-73px)]">
         {/* Picker: fixed-height scroll window so the transcript pane stays put */}

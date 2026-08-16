@@ -140,6 +140,28 @@ export async function getConversation(sessionId: string): Promise<Result<Convers
   }
 }
 
+// Logging failures are deliberately swallowed so a dead database never breaks a
+// chat reply — which also means they are invisible. Writes stopped for 89 days
+// once without anyone noticing. Surfacing the age of the newest row in the
+// console turns that silent failure into something you can see.
+export async function getLoggingHealth(): Promise<{ lastAt: string | null; staleDays: number }> {
+  try {
+    const { data, error } = await getSupabase()
+      .from("chat_logs")
+      .select("created_at")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0) return { lastAt: null, staleDays: Infinity };
+
+    const lastAt = data[0].created_at as string;
+    const days = (Date.now() - new Date(lastAt).getTime()) / 86_400_000;
+    return { lastAt, staleDays: Math.floor(days) };
+  } catch {
+    return { lastAt: null, staleDays: Infinity };
+  }
+}
+
 export function formatLocation(c: {
   city: string | null;
   region: string | null;

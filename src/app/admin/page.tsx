@@ -1,4 +1,4 @@
-import { listConversations } from "@/lib/conversations";
+import { getLoggingHealth, listConversations } from "@/lib/conversations";
 import AdminConsole from "@/components/AdminConsole";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,10 @@ export default async function AdminPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const { page } = await searchParams;
-  const result = await listConversations(Number(page ?? "1"));
+  const [result, health] = await Promise.all([
+    listConversations(Number(page ?? "1")),
+    getLoggingHealth(),
+  ]);
 
   if (!result.ok) {
     return (
@@ -48,5 +51,5 @@ export default async function AdminPage({
     );
   }
 
-  return <AdminConsole initial={result.data} />;
+  return <AdminConsole initial={result.data} health={health} />;
 }
