@@ -39,7 +39,7 @@ export default async function AdminPage({
               </li>
               <li>
                 The <code className="text-zinc-300">chat_sessions</code> view hasn&apos;t been
-                created — run <code className="text-zinc-300">sql/chat_sessions.sql</code>.
+                created — run <code className="text-zinc-300">sql/002_chat_sessions.sql</code>.
               </li>
             </ul>
           </div>
