@@ -42,10 +42,9 @@ CREATE TABLE chat_logs (
     error TEXT
 );
 
--- Migration for an existing table (safe to re-run):
--- ALTER TABLE chat_logs ADD COLUMN IF NOT EXISTS cached_tokens INTEGER;
--- ALTER TABLE chat_logs DROP COLUMN IF EXISTS latitude;
--- ALTER TABLE chat_logs DROP COLUMN IF EXISTS longitude;
+-- This file is the table as it should look on a fresh project. If the table
+-- already exists, do NOT re-run it — apply the numbered migrations instead
+-- (005 adds cached_tokens; 004 removes latitude/longitude).
 
 -- Indexes
 CREATE INDEX idx_chat_logs_created_at ON chat_logs (created_at);
