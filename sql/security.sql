@@ -1,55 +1,79 @@
--- Lock down chat_logs. Run this in the Supabase SQL Editor after chat_logs.sql
--- and chat_sessions.sql. Safe to re-run.
+-- Lock down chat_logs. Paste this whole file into the Supabase SQL Editor and run it.
+-- Idempotent and order-independent: safe to re-run, and it does not matter whether
+-- sql/chat_sessions.sql has been run yet.
 --
--- WHY THIS MATTERS
--- Every Supabase project ships a publishable (anon) key that is designed to be
--- public — it goes in browser code. It is only safe because row-level security
--- is supposed to stand behind it. A table created by hand in the SQL Editor does
--- NOT get RLS enabled automatically (unlike one created through the dashboard's
--- table editor), so `chat_logs` may currently be readable by anyone holding that
--- publishable key. This site never uses the publishable key, but the key exists
--- on the project regardless.
+-- FIXES THESE TWO SUPABASE ADVISOR FINDINGS (both the same root cause):
+--   CRITICAL  RLS Disabled in Public — table public.chat_logs is public, but RLS
+--             has not been enabled.
+--   CRITICAL  Sensitive Columns Exposed — chat_logs is exposed via API without RLS.
 --
--- The app is unaffected by everything below: it connects with the service key,
--- which bypasses RLS by design.
+-- WHY IT MATTERS
+-- Every Supabase project ships a publishable (anon) key that is meant to be public —
+-- it is designed to go in browser code. It is only safe because row-level security
+-- stands behind it. A table created by hand in the SQL Editor does NOT get RLS
+-- enabled automatically, so chat_logs is currently readable by anyone holding that
+-- key: every logged conversation, plus the IP and location captured with it.
+--
+-- THE APP IS UNAFFECTED. It connects with the service key, which bypasses RLS by
+-- design. Nothing below needs a code change or a redeploy.
 
--- 1. Turn RLS on. With no permissive policy, this denies all anon/authenticated
---    access while leaving the service key's access untouched.
-ALTER TABLE chat_logs ENABLE ROW LEVEL SECURITY;
 
--- 2. Belt and braces: remove the table grants Supabase hands the public roles by
---    default, so access is refused at the privilege layer too, not just by RLS.
-REVOKE ALL ON TABLE chat_logs FROM anon, authenticated;
-REVOKE ALL ON TABLE chat_sessions FROM anon, authenticated;
+-- 1. Enable RLS. This alone clears both advisor findings.
+--    With RLS on and no permissive policy, anon and authenticated get zero rows.
+--    That is the intent: nothing should read this table except the server, which
+--    uses the service key and is exempt. No policy is needed or wanted.
+ALTER TABLE public.chat_logs ENABLE ROW LEVEL SECURITY;
 
--- 3. Backfill the privacy change: existing rows still hold full IP addresses and
---    precise coordinates captured before truncation was added. New rows are
---    already truncated by the application.
-UPDATE chat_logs
+
+-- 2. Belt and braces — also remove the table grants Supabase gives the public
+--    roles by default, so access is refused at the privilege layer as well.
+--    (If you ever want to read this table with the publishable key from the
+--    browser, you would re-grant SELECT here and add an explicit RLS policy.)
+REVOKE ALL ON TABLE public.chat_logs FROM anon, authenticated;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'chat_sessions' AND relkind = 'v') THEN
+    REVOKE ALL ON TABLE public.chat_sessions FROM anon, authenticated;
+  END IF;
+END $$;
+
+
+-- 3. Backfill the privacy change. Rows written before IP truncation shipped still
+--    hold full addresses and precise coordinates. New rows are already truncated
+--    by the application.
+UPDATE public.chat_logs
 SET ip_address = regexp_replace(ip_address, '^(\d+\.\d+\.\d+)\.\d+$', '\1.0')
 WHERE ip_address ~ '^\d+\.\d+\.\d+\.\d+$';
 
-ALTER TABLE chat_logs DROP COLUMN IF EXISTS latitude;
-ALTER TABLE chat_logs DROP COLUMN IF EXISTS longitude;
+ALTER TABLE public.chat_logs DROP COLUMN IF EXISTS latitude;
+ALTER TABLE public.chat_logs DROP COLUMN IF EXISTS longitude;
+
 
 -- 4. Repair historically percent-encoded geo values ("Saint%20Joseph").
 --    The application now decodes these before insert.
-UPDATE chat_logs
-SET city   = replace(city, '%20', ' '),
+UPDATE public.chat_logs
+SET city   = replace(city,   '%20', ' '),
     region = replace(region, '%20', ' ')
-WHERE city LIKE '%\%20%' OR region LIKE '%\%20%';
+WHERE city ILIKE '%\%20%' OR region ILIKE '%\%20%';
 
--- 5. Verify. Expect rowsecurity = true, and no anon/authenticated grants.
+
+-- 5. Verify. Read the three result sets below.
+--    Expected: rls_enabled = true; the grants query returns ZERO rows; and
+--    chat_sessions (if created) shows security_invoker=true.
+
 SELECT relname AS table_name, relrowsecurity AS rls_enabled
 FROM pg_class
-WHERE relname IN ('chat_logs');
+WHERE relnamespace = 'public'::regnamespace
+  AND relname IN ('chat_logs');
 
 SELECT grantee, table_name, privilege_type
 FROM information_schema.role_table_grants
-WHERE table_name IN ('chat_logs', 'chat_sessions')
+WHERE table_schema = 'public'
+  AND table_name IN ('chat_logs', 'chat_sessions')
   AND grantee IN ('anon', 'authenticated');
 
--- Confirms the view is security_invoker (expect security_invoker=true).
-SELECT c.relname, c.reloptions
-FROM pg_class c
-WHERE c.relname = 'chat_sessions';
+SELECT relname, reloptions
+FROM pg_class
+WHERE relnamespace = 'public'::regnamespace
+  AND relname = 'chat_sessions';
