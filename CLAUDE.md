@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev        # local dev server (http://localhost:3000)
+npm test           # vitest — unit tests for the security-critical pure functions
 npm run build      # production build
 npm run lint       # eslint (flat config, eslint-config-next)
 npx tsc --noEmit   # type check — run this; the build alone won't catch everything
 ```
 
-There is no test suite. CI (`.github/workflows/ci.yml`, Node 20) runs exactly three gates on push/PR to `main`: `npm run lint`, `npx tsc --noEmit`, `npm run build`. A Husky pre-commit hook runs `lint-staged` (eslint --fix + prettier on staged files).
+CI (`.github/workflows/ci.yml`, Node 20) runs four gates on push/PR to `main`: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`. Tests live beside their subject as `src/**/*.test.ts` and cover the pure guard logic (`lib/chatGuards.ts`, `lib/adminAuth.ts`, `lib/clientIp.ts`, `lib/origin.ts`, `lib/rateLimit.ts`) — the route handlers themselves are verified by hitting a production build. A Husky pre-commit hook runs `lint-staged` (eslint --fix + prettier on staged files).
 
 ## Environment
 
@@ -63,3 +64,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Reusing the admin console elsewhere
+
+`CLAUDE-ADMIN-CONSOLE.md` is a standalone build guide for the `/admin` console — data model, auth scheme, the 404-not-redirect rule, and the pitfalls hit while building it. Written to be dropped into another repo.

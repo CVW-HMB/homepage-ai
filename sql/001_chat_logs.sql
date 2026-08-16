@@ -16,12 +16,11 @@ CREATE TABLE chat_logs (
     -- Visitor identity
     ip_address TEXT,
     
-    -- Geographic (from Vercel headers)
+    -- Geographic (from Vercel headers; city-level only — precise coordinates are
+    -- deliberately not collected)
     country TEXT,
     region TEXT,
     city TEXT,
-    latitude NUMERIC,
-    longitude NUMERIC,
     
     -- Device/browser
     user_agent TEXT,
@@ -44,7 +43,8 @@ CREATE TABLE chat_logs (
 
 -- This file is the table as it should look on a fresh project. If the table
 -- already exists, do NOT re-run it — apply the numbered migrations instead
--- (005 adds cached_tokens; 004 removes latitude/longitude).
+-- (005 adds cached_tokens; 004 removes the legacy latitude/longitude columns
+--  and truncates historical IPs).
 
 -- Indexes
 CREATE INDEX idx_chat_logs_created_at ON chat_logs (created_at);
